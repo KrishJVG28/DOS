@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Security Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta http-equiv="refresh" content="3"> 
+</head>
+<body class="bg-gray-900 text-gray-100 p-8 font-sans">
+
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold text-cyan-400 mb-2">Network Traffic Monitor</h1>
+        <p class="text-gray-400 mb-8">Live DoS detection and cryptographic log analysis.</p>
+
+        <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4 mb-6">
+            <canvas id="trafficChart" height="70"></canvas>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-900 border-b border-gray-700 text-sm uppercase tracking-wider text-gray-400">
+                        <th class="p-4">Timestamp</th>
+                        <th class="p-4">Verdict</th>
+                        <th class="p-4">Entropy</th>
+                        <th class="p-4">Packets</th>
+                        <th class="p-4">Cryptographic Hash (SHA-256)</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    {% for log in logs|reverse %}
+                    <tr class="border-b border-gray-700 hover:bg-gray-750 transition-colors">
+                        <td class="p-4 text-gray-300">{{ log.timestamp }}</td>
+                        <td class="p-4 font-bold 
+                            {% if log.verdict == 'DOS_ATTACK' %} text-red-500 
+                            {% elif log.verdict == 'FLASH_CROWD' %} text-yellow-500 
+                            {% else %} text-green-500 {% endif %}">
+                            {{ log.verdict }}
+                        </td>
+                        <td class="p-4 text-gray-300">{{ log.entropy }}</td>
+                        <td class="p-4 text-gray-300">{{ log.packet_count }}</td>
+                        <td class="p-4 font-mono text-xs text-gray-500 truncate max-w-xs" title="{{ log.hash }}">
+                            {{ log.hash }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="p-8 text-center text-gray-500">No threat logs detected yet. Run the simulator!</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const logData = {{ logs | tojson }};
+
+        // Extract the data arrays for Chart.js
+        const labels = logData.map(log => log.timestamp.split(' ')[1]); // Keep just the HH:MM:SS time
+        const packets = logData.map(log => log.packet_count);
+        const entropies = logData.map(log => log.entropy);
+
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Packet Volume',
+                        data: packets,
+                        borderColor: '#06b6d4', // cyan
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        yAxisID: 'y' // Binds to the left axis
+                    },
+                    {
+                        label: 'Entropy Score',
+                        data: entropies,
+                        borderColor: '#8b5cf6', // violet
+                        borderWidth: 2,
+                        borderDash: [5, 5], // Dashed line to differentiate
+                        tension: 0.3,
+                        yAxisID: 'y1' // Binds to the right axis
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                animation: false, 
+                scales: {
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                    y: { 
+                        type: 'linear', display: true, position: 'left',
+                        grid: { color: '#374151' }, ticks: { color: '#9ca3af' },
+                        title: { display: true, text: 'Total Packets', color: '#9ca3af' }
+                    },
+                    y1: { 
+                        type: 'linear', display: true, position: 'right',
+                        grid: { drawOnChartArea: false }, ticks: { color: '#9ca3af' },
+                        title: { display: true, text: 'Entropy', color: '#9ca3af' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e5e7eb' } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
